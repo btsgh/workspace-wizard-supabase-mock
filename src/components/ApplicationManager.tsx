@@ -5,32 +5,33 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, FileText, Layout } from 'lucide-react';
+import { Plus, Edit, Trash2, ExternalLink } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
 const ApplicationManager = () => {
+  const [isCreating, setIsCreating] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    workspace_id: '',
+    status: 'development',
+    url: ''
+  });
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [newApp, setNewApp] = useState({
-    workspace_id: '',
-    name: '',
-    description: ''
-  });
 
   const { data: applications, isLoading } = useQuery({
     queryKey: ['applications'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('applications')
-        .select(`
-          *,
-          workspaces(name, type),
-          pages(count)
-        `);
+        .select('*, workspaces(name)')
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     }
@@ -41,66 +42,30 @@ const ApplicationManager = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('workspaces')
-        .select('*');
+        .select('*')
+        .order('name');
       if (error) throw error;
       return data;
     }
   });
 
-  const createApplicationMutation = useMutation({
-    mutationFn: async (appData: typeof newApp) => {
+  const createApplication = useMutation({
+    mutationFn: async (app: typeof formData) => {
       const { data, error } = await supabase
         .from('applications')
-        .insert([appData])
-        .select()
+        .insert([app])
+        .select('*, workspaces(name)')
         .single();
       if (error) throw error;
-
-      // Create default pages based on workspace type
-      const workspace = workspaces?.find(w => w.id === appData.workspace_id);
-      let defaultPages = [];
-
-      if (workspace?.type === 'developer') {
-        defaultPages = [
-          { application_id: data.id, name: 'Bug List', description: 'Track and manage bugs', page_order: 1 },
-          { application_id: data.id, name: 'Developer Efficiency', description: 'Monitor developer performance', page_order: 2 },
-          { application_id: data.id, name: 'Feature Development', description: 'Plan new features', page_order: 3 }
-        ];
-      } else if (workspace?.type === 'sales') {
-        if (appData.name.toLowerCase().includes('marketing')) {
-          defaultPages = [
-            { application_id: data.id, name: 'Customer Meetings', description: 'Schedule meetings with happy customers', page_order: 1 },
-            { application_id: data.id, name: 'Launch Strategy', description: 'Plan product launches', page_order: 2 }
-          ];
-        } else {
-          defaultPages = [
-            { application_id: data.id, name: 'Customer Information', description: 'Manage customer contracts and details', page_order: 1 }
-          ];
-        }
-      } else if (workspace?.type === 'hris') {
-        defaultPages = [
-          { application_id: data.id, name: 'Employee Directory', description: 'View all employees', page_order: 1 },
-          { application_id: data.id, name: 'Leave Tracker', description: 'Track employee leaves', page_order: 2 },
-          { application_id: data.id, name: 'Department View', description: 'Department-wise employee details', page_order: 3 },
-          { application_id: data.id, name: 'Performance Tracker', description: 'Monitor employee performance', page_order: 4 }
-        ];
-      }
-
-      if (defaultPages.length > 0) {
-        const { error: pagesError } = await supabase
-          .from('pages')
-          .insert(defaultPages);
-        if (pagesError) throw pagesError;
-      }
-
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['applications'] });
-      setNewApp({ workspace_id: '', name: '', description: '' });
+      setIsCreating(false);
+      setFormData({ name: '', description: '', workspace_id: '', status: 'development', url: '' });
       toast({
         title: "Success",
-        description: "Application created successfully with default pages",
+        description: "Application created successfully",
       });
     },
     onError: (error) => {
@@ -115,39 +80,42 @@ const ApplicationManager = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newApp.workspace_id || !newApp.name) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
-    }
-    createApplicationMutation.mutate(newApp);
+    createApplication.mutate(formData);
   };
 
-  if (isLoading) {
-    return <div className="text-center">Loading applications...</div>;
-  }
+  if (isLoading) return <div className="text-center">Loading applications...</div>;
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Plus className="h-5 w-5" />
-            Create New Application
-          </CardTitle>
-          <CardDescription>
-            Add a new application to a workspace
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Application Management</h2>
+        <Button onClick={() => setIsCreating(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Create Application
+        </Button>
+      </div>
+
+      {isCreating && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Create New Application</CardTitle>
+            <CardDescription>Add a new application to a workspace</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="name">Application Name</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Enter application name"
+                  required
+                />
+              </div>
+              <div>
                 <Label htmlFor="workspace">Workspace</Label>
-                <Select value={newApp.workspace_id} onValueChange={(value) => setNewApp(prev => ({ ...prev, workspace_id: value }))}>
+                <Select onValueChange={(value) => setFormData({ ...formData, workspace_id: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select workspace" />
                   </SelectTrigger>
@@ -160,75 +128,109 @@ const ApplicationManager = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="name">Application Name</Label>
+              <div>
+                <Label htmlFor="status">Status</Label>
+                <Select onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="development">Development</SelectItem>
+                    <SelectItem value="testing">Testing</SelectItem>
+                    <SelectItem value="production">Production</SelectItem>
+                    <SelectItem value="archived">Archived</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="url">Application URL</Label>
                 <Input
-                  id="name"
-                  value={newApp.name}
-                  onChange={(e) => setNewApp(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g., Bug Tracker, CRM System"
-                  required
+                  id="url"
+                  type="url"
+                  value={formData.url}
+                  onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                  placeholder="https://your-app.appsmith.com"
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Input
-                id="description"
-                value={newApp.description}
-                onChange={(e) => setNewApp(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Brief description of the application"
-              />
-            </div>
-            <Button type="submit" disabled={createApplicationMutation.isPending}>
-              {createApplicationMutation.isPending ? 'Creating...' : 'Create Application'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Enter application description"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button type="submit" disabled={createApplication.isPending}>
+                  {createApplication.isPending ? 'Creating...' : 'Create'}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setIsCreating(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
           <CardTitle>Applications</CardTitle>
-          <CardDescription>All applications across workspaces</CardDescription>
+          <CardDescription>Manage your Appsmith applications</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Application</TableHead>
+                <TableHead>Name</TableHead>
                 <TableHead>Workspace</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Pages</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>URL</TableHead>
                 <TableHead>Created</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {applications?.map((app) => (
                 <TableRow key={app.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      <div>
-                        <div>{app.name}</div>
-                        {app.description && (
-                          <div className="text-sm text-muted-foreground">{app.description}</div>
-                        )}
-                      </div>
-                    </div>
-                  </TableCell>
+                  <TableCell className="font-medium">{app.name}</TableCell>
                   <TableCell>{app.workspaces?.name}</TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{app.workspaces?.type}</Badge>
+                    <Badge 
+                      variant={
+                        app.status === 'production' ? 'default' :
+                        app.status === 'testing' ? 'secondary' :
+                        app.status === 'development' ? 'outline' : 'destructive'
+                      }
+                    >
+                      {app.status}
+                    </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Layout className="h-4 w-4" />
-                      {app.pages?.length || 0}
-                    </div>
+                    {app.url && (
+                      <a 
+                        href={app.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
+                      >
+                        View <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell>
                     {new Date(app.created_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

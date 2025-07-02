@@ -5,38 +5,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Building2, Users } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
 const WorkspaceManager = () => {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [newWorkspace, setNewWorkspace] = useState({
+  const [isCreating, setIsCreating] = useState(false);
+  const [formData, setFormData] = useState({
     name: '',
     type: '',
     description: ''
   });
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: workspaces, isLoading } = useQuery({
     queryKey: ['workspaces'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('workspaces')
-        .select(`
-          *,
-          user_workspace_access(count),
-          applications(count)
-        `);
+        .select('*')
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     }
   });
 
-  const createWorkspaceMutation = useMutation({
-    mutationFn: async (workspace: typeof newWorkspace) => {
+  const createWorkspace = useMutation({
+    mutationFn: async (workspace: typeof formData) => {
       const { data, error } = await supabase
         .from('workspaces')
         .insert([workspace])
@@ -47,7 +47,8 @@ const WorkspaceManager = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workspaces'] });
-      setNewWorkspace({ name: '', type: '', description: '' });
+      setIsCreating(false);
+      setFormData({ name: '', type: '', description: '' });
       toast({
         title: "Success",
         description: "Workspace created successfully",
@@ -65,110 +66,119 @@ const WorkspaceManager = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newWorkspace.name || !newWorkspace.type) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
-    }
-    createWorkspaceMutation.mutate(newWorkspace);
+    createWorkspace.mutate(formData);
   };
 
-  if (isLoading) {
-    return <div className="text-center">Loading workspaces...</div>;
-  }
+  if (isLoading) return <div className="text-center">Loading workspaces...</div>;
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Plus className="h-5 w-5" />
-            Create New Workspace
-          </CardTitle>
-          <CardDescription>
-            Add a new workspace to your Appsmith instance
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Workspace Management</h2>
+        <Button onClick={() => setIsCreating(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Create Workspace
+        </Button>
+      </div>
+
+      {isCreating && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Create New Workspace</CardTitle>
+            <CardDescription>Add a new workspace to your organization</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
                 <Label htmlFor="name">Workspace Name</Label>
                 <Input
                   id="name"
-                  value={newWorkspace.name}
-                  onChange={(e) => setNewWorkspace(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g., Developer Workspace"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Enter workspace name"
                   required
                 />
               </div>
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="type">Workspace Type</Label>
-                <Select value={newWorkspace.type} onValueChange={(value) => setNewWorkspace(prev => ({ ...prev, type: value }))}>
+                <Select onValueChange={(value) => setFormData({ ...formData, type: value })}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
+                    <SelectValue placeholder="Select workspace type" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="developer">Developer</SelectItem>
                     <SelectItem value="sales">Sales</SelectItem>
                     <SelectItem value="hris">HRIS</SelectItem>
+                    <SelectItem value="marketing">Marketing</SelectItem>
+                    <SelectItem value="finance">Finance</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Input
-                id="description"
-                value={newWorkspace.description}
-                onChange={(e) => setNewWorkspace(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Brief description of the workspace"
-              />
-            </div>
-            <Button type="submit" disabled={createWorkspaceMutation.isPending}>
-              {createWorkspaceMutation.isPending ? 'Creating...' : 'Create Workspace'}
-            </Button>
-          </form>
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Enter workspace description"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button type="submit" disabled={createWorkspace.isPending}>
+                  {createWorkspace.isPending ? 'Creating...' : 'Create'}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setIsCreating(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Existing Workspaces</CardTitle>
+          <CardDescription>Manage your organization's workspaces</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {workspaces?.map((workspace) => (
+                <TableRow key={workspace.id}>
+                  <TableCell className="font-medium">{workspace.name}</TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{workspace.type}</Badge>
+                  </TableCell>
+                  <TableCell>{workspace.description}</TableCell>
+                  <TableCell>
+                    {new Date(workspace.created_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {workspaces?.map((workspace) => (
-          <Card key={workspace.id}>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4" />
-                  {workspace.name}
-                </span>
-                <Badge variant="secondary">{workspace.type}</Badge>
-              </CardTitle>
-              <CardDescription>{workspace.description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1">
-                    <Users className="h-4 w-4" />
-                    Users
-                  </span>
-                  <span>{workspace.user_workspace_access?.length || 0}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Applications</span>
-                  <span>{workspace.applications?.length || 0}</span>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Created: {new Date(workspace.created_at).toLocaleDateString()}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
     </div>
   );
 };
