@@ -1,18 +1,19 @@
-
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Users, Building2, FileText, Settings } from 'lucide-react';
+import { Users, Building2, FileText, Settings, ArrowLeft } from 'lucide-react';
 import WorkspaceManager from '@/components/WorkspaceManager';
 import UserManager from '@/components/UserManager';
 import ApplicationManager from '@/components/ApplicationManager';
+import WorkspaceDetail from '@/components/WorkspaceDetail';
 import { supabase } from '@/lib/supabase';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
+  const [selectedWorkspace, setSelectedWorkspace] = useState<any>(null);
 
   const { data: workspaces, isLoading: workspacesLoading } = useQuery({
     queryKey: ['workspaces'],
@@ -51,6 +52,25 @@ const Dashboard = () => {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg">Loading dashboard...</div>
+      </div>
+    );
+  }
+
+  // If a workspace is selected, show its detailed view
+  if (selectedWorkspace) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="mb-6">
+          <Button 
+            variant="outline" 
+            onClick={() => setSelectedWorkspace(null)}
+            className="mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Button>
+        </div>
+        <WorkspaceDetail workspace={selectedWorkspace} />
       </div>
     );
   }
@@ -125,9 +145,18 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent className="space-y-2">
                 {workspaces?.map((workspace) => (
-                  <div key={workspace.id} className="flex items-center justify-between">
-                    <span className="font-medium">{workspace.name}</span>
-                    <Badge variant="secondary">{workspace.type}</Badge>
+                  <div key={workspace.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{workspace.name}</span>
+                      <Badge variant="secondary">{workspace.type}</Badge>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setSelectedWorkspace(workspace)}
+                    >
+                      View Details
+                    </Button>
                   </div>
                 ))}
               </CardContent>
