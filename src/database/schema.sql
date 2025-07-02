@@ -162,7 +162,7 @@ CREATE TABLE public.employee_performance (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- RLS Policies
+-- Enable RLS on all tables
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.workspaces ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_workspace_access ENABLE ROW LEVEL SECURITY;
@@ -178,14 +178,39 @@ ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.leave_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employee_performance ENABLE ROW LEVEL SECURITY;
 
--- User profiles policies
+-- =============================
+-- USER PROFILES POLICIES
+-- =============================
 CREATE POLICY "Users can view their own profile" ON public.user_profiles
     FOR SELECT USING (auth.uid() = id);
 
 CREATE POLICY "Users can update their own profile" ON public.user_profiles
     FOR UPDATE USING (auth.uid() = id);
 
--- Workspace access policies
+CREATE POLICY "Admins can view all profiles" ON public.user_profiles
+    FOR SELECT USING (
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can update all profiles" ON public.user_profiles
+    FOR UPDATE USING (
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can insert new profiles" ON public.user_profiles
+    FOR INSERT WITH CHECK (
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+-- =============================
+-- WORKSPACES POLICIES
+-- =============================
 CREATE POLICY "Users can view workspaces they have access to" ON public.workspaces
     FOR SELECT USING (
         id IN (
@@ -197,8 +222,155 @@ CREATE POLICY "Users can view workspaces they have access to" ON public.workspac
         )
     );
 
--- General policy for workspace-related data
-CREATE POLICY "Users can access data in their workspaces" ON public.bugs
+CREATE POLICY "Admins can insert workspaces" ON public.workspaces
+    FOR INSERT WITH CHECK (
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can update workspaces" ON public.workspaces
+    FOR UPDATE USING (
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can delete workspaces" ON public.workspaces
+    FOR DELETE USING (
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+-- =============================
+-- USER WORKSPACE ACCESS POLICIES
+-- =============================
+CREATE POLICY "Users can view their own workspace access" ON public.user_workspace_access
+    FOR SELECT USING (
+        user_id = auth.uid() OR
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can manage workspace access" ON public.user_workspace_access
+    FOR ALL USING (
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+-- =============================
+-- APPLICATIONS POLICIES
+-- =============================
+CREATE POLICY "Users can view applications in their workspaces" ON public.applications
+    FOR SELECT USING (
+        workspace_id IN (
+            SELECT workspace_id FROM public.user_workspace_access 
+            WHERE user_id = auth.uid()
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can manage all applications" ON public.applications
+    FOR ALL USING (
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+-- =============================
+-- PAGES POLICIES
+-- =============================
+CREATE POLICY "Users can view pages in their workspace applications" ON public.pages
+    FOR SELECT USING (
+        application_id IN (
+            SELECT a.id FROM public.applications a
+            JOIN public.user_workspace_access uwa ON a.workspace_id = uwa.workspace_id
+            WHERE uwa.user_id = auth.uid()
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+CREATE POLICY "Admins can manage all pages" ON public.pages
+    FOR ALL USING (
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+-- =============================
+-- DEVELOPER WORKSPACE POLICIES
+-- =============================
+
+-- Bugs table policies
+CREATE POLICY "Developer workspace users can view bugs" ON public.bugs
+    FOR SELECT USING (
+        auth.uid() IN (
+            SELECT user_id FROM public.user_workspace_access uwa
+            JOIN public.workspaces w ON w.id = uwa.workspace_id
+            WHERE w.type = 'developer'
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+CREATE POLICY "Developer workspace users can insert bugs" ON public.bugs
+    FOR INSERT WITH CHECK (
+        auth.uid() IN (
+            SELECT user_id FROM public.user_workspace_access uwa
+            JOIN public.workspaces w ON w.id = uwa.workspace_id
+            WHERE w.type = 'developer'
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+CREATE POLICY "Developer workspace users can update bugs" ON public.bugs
+    FOR UPDATE USING (
+        auth.uid() IN (
+            SELECT user_id FROM public.user_workspace_access uwa
+            JOIN public.workspaces w ON w.id = uwa.workspace_id
+            WHERE w.type = 'developer'
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+CREATE POLICY "Developer workspace users can delete bugs" ON public.bugs
+    FOR DELETE USING (
+        auth.uid() IN (
+            SELECT user_id FROM public.user_workspace_access uwa
+            JOIN public.workspaces w ON w.id = uwa.workspace_id
+            WHERE w.type = 'developer'
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+-- Developer efficiency table policies
+CREATE POLICY "Developer workspace users can view efficiency data" ON public.developer_efficiency
+    FOR SELECT USING (
+        auth.uid() IN (
+            SELECT user_id FROM public.user_workspace_access uwa
+            JOIN public.workspaces w ON w.id = uwa.workspace_id
+            WHERE w.type = 'developer'
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+CREATE POLICY "Developer workspace users can manage efficiency data" ON public.developer_efficiency
     FOR ALL USING (
         auth.uid() IN (
             SELECT user_id FROM public.user_workspace_access uwa
@@ -210,5 +382,185 @@ CREATE POLICY "Users can access data in their workspaces" ON public.bugs
         )
     );
 
--- Similar policies for other tables (abbreviated for brevity)
--- Apply similar workspace-based access control to all other tables
+-- Features table policies
+CREATE POLICY "Developer workspace users can view features" ON public.features
+    FOR SELECT USING (
+        auth.uid() IN (
+            SELECT user_id FROM public.user_workspace_access uwa
+            JOIN public.workspaces w ON w.id = uwa.workspace_id
+            WHERE w.type = 'developer'
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+CREATE POLICY "Developer workspace users can manage features" ON public.features
+    FOR ALL USING (
+        auth.uid() IN (
+            SELECT user_id FROM public.user_workspace_access uwa
+            JOIN public.workspaces w ON w.id = uwa.workspace_id
+            WHERE w.type = 'developer'
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+-- =============================
+-- SALES WORKSPACE POLICIES
+-- =============================
+
+-- Customer meetings table policies
+CREATE POLICY "Sales workspace users can view meetings" ON public.customer_meetings
+    FOR SELECT USING (
+        auth.uid() IN (
+            SELECT user_id FROM public.user_workspace_access uwa
+            JOIN public.workspaces w ON w.id = uwa.workspace_id
+            WHERE w.type = 'sales'
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+CREATE POLICY "Sales workspace users can manage meetings" ON public.customer_meetings
+    FOR ALL USING (
+        auth.uid() IN (
+            SELECT user_id FROM public.user_workspace_access uwa
+            JOIN public.workspaces w ON w.id = uwa.workspace_id
+            WHERE w.type = 'sales'
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+-- Launch strategies table policies
+CREATE POLICY "Sales workspace users can view launch strategies" ON public.launch_strategies
+    FOR SELECT USING (
+        auth.uid() IN (
+            SELECT user_id FROM public.user_workspace_access uwa
+            JOIN public.workspaces w ON w.id = uwa.workspace_id
+            WHERE w.type = 'sales'
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+CREATE POLICY "Sales workspace users can manage launch strategies" ON public.launch_strategies
+    FOR ALL USING (
+        auth.uid() IN (
+            SELECT user_id FROM public.user_workspace_access uwa
+            JOIN public.workspaces w ON w.id = uwa.workspace_id
+            WHERE w.type = 'sales'
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+-- Customers table policies
+CREATE POLICY "Sales workspace users can view customers" ON public.customers
+    FOR SELECT USING (
+        auth.uid() IN (
+            SELECT user_id FROM public.user_workspace_access uwa
+            JOIN public.workspaces w ON w.id = uwa.workspace_id
+            WHERE w.type = 'sales'
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+CREATE POLICY "Sales workspace users can manage customers" ON public.customers
+    FOR ALL USING (
+        auth.uid() IN (
+            SELECT user_id FROM public.user_workspace_access uwa
+            JOIN public.workspaces w ON w.id = uwa.workspace_id
+            WHERE w.type = 'sales'
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+-- =============================
+-- HRIS WORKSPACE POLICIES
+-- =============================
+
+-- Employees table policies
+CREATE POLICY "HRIS workspace users can view employees" ON public.employees
+    FOR SELECT USING (
+        auth.uid() IN (
+            SELECT user_id FROM public.user_workspace_access uwa
+            JOIN public.workspaces w ON w.id = uwa.workspace_id
+            WHERE w.type = 'hris'
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+CREATE POLICY "HRIS workspace users can manage employees" ON public.employees
+    FOR ALL USING (
+        auth.uid() IN (
+            SELECT user_id FROM public.user_workspace_access uwa
+            JOIN public.workspaces w ON w.id = uwa.workspace_id
+            WHERE w.type = 'hris'
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+-- Leave requests table policies
+CREATE POLICY "HRIS workspace users can view leave requests" ON public.leave_requests
+    FOR SELECT USING (
+        auth.uid() IN (
+            SELECT user_id FROM public.user_workspace_access uwa
+            JOIN public.workspaces w ON w.id = uwa.workspace_id
+            WHERE w.type = 'hris'
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+CREATE POLICY "HRIS workspace users can manage leave requests" ON public.leave_requests
+    FOR ALL USING (
+        auth.uid() IN (
+            SELECT user_id FROM public.user_workspace_access uwa
+            JOIN public.workspaces w ON w.id = uwa.workspace_id
+            WHERE w.type = 'hris'
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+-- Employee performance table policies
+CREATE POLICY "HRIS workspace users can view performance data" ON public.employee_performance
+    FOR SELECT USING (
+        auth.uid() IN (
+            SELECT user_id FROM public.user_workspace_access uwa
+            JOIN public.workspaces w ON w.id = uwa.workspace_id
+            WHERE w.type = 'hris'
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
+
+CREATE POLICY "HRIS workspace users can manage performance data" ON public.employee_performance
+    FOR ALL USING (
+        auth.uid() IN (
+            SELECT user_id FROM public.user_workspace_access uwa
+            JOIN public.workspaces w ON w.id = uwa.workspace_id
+            WHERE w.type = 'hris'
+        ) OR 
+        auth.uid() IN (
+            SELECT id FROM public.user_profiles WHERE role = 'admin'
+        )
+    );
