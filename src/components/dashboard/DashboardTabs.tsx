@@ -12,7 +12,6 @@ interface DashboardTabsProps {
   workspaces: any[];
   users: any[];
   onWorkspaceSelect: (workspace: any) => void;
-  userRole?: string;
 }
 
 const DashboardTabs = ({ 
@@ -20,18 +19,15 @@ const DashboardTabs = ({
   onTabChange, 
   workspaces, 
   users, 
-  onWorkspaceSelect,
-  userRole
+  onWorkspaceSelect 
 }: DashboardTabsProps) => {
-  const isAdmin = userRole === 'admin';
-
   return (
     <Tabs value={activeTab} onValueChange={onTabChange} className="space-y-4">
-      <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'}`}>
+      <TabsList className="grid w-full grid-cols-4">
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="workspaces">Workspaces</TabsTrigger>
-        {isAdmin && <TabsTrigger value="users">Users</TabsTrigger>}
-        {isAdmin && <TabsTrigger value="applications">Applications</TabsTrigger>}
+        <TabsTrigger value="users">Users</TabsTrigger>
+        <TabsTrigger value="applications">Applications</TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview" className="space-y-4">
@@ -46,17 +42,13 @@ const DashboardTabs = ({
         <WorkspaceManager />
       </TabsContent>
 
-      {isAdmin && (
-        <TabsContent value="users">
-          <UserManager />
-        </TabsContent>
-      )}
+      <TabsContent value="users">
+        <UserManager />
+      </TabsContent>
 
-      {isAdmin && (
-        <TabsContent value="applications">
-          <ApplicationManager />
-        </TabsContent>
-      )}
+      <TabsContent value="applications">
+        <ApplicationManager />
+      </TabsContent>
     </Tabs>
   );
 };
