@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
@@ -23,15 +24,18 @@ const WorkspaceManager = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: workspaces, isLoading } = useQuery({
+  const { data: workspaces, isLoading, error } = useQuery({
     queryKey: ['workspaces'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('workspaces')
         .select('*')
         .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
+      if (error) {
+        console.error('Error fetching workspaces:', error);
+        throw error;
+      }
+      return data || [];
     }
   });
 
@@ -66,8 +70,25 @@ const WorkspaceManager = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (error) {
+      toast({
+        title: "Database Error",
+        description: "Cannot create workspace. Please check your database connection.",
+        variant: "destructive",
+      });
+      return;
+    }
     createWorkspace.mutate(formData);
   };
+
+  // Mock data fallback
+  const mockWorkspaces = [
+    { id: '1', name: 'Developer Workspace', type: 'developer', description: 'Main development workspace', created_at: new Date().toISOString() },
+    { id: '2', name: 'Sales Team', type: 'sales', description: 'Sales and customer management', created_at: new Date().toISOString() },
+    { id: '3', name: 'HR Department', type: 'hris', description: 'Human resources management', created_at: new Date().toISOString() }
+  ];
+
+  const displayWorkspaces = error ? mockWorkspaces : (workspaces || []);
 
   if (isLoading) return <div className="text-center">Loading workspaces...</div>;
 
@@ -75,11 +96,20 @@ const WorkspaceManager = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Workspace Management</h2>
-        <Button onClick={() => setIsCreating(true)}>
+        <Button onClick={() => setIsCreating(true)} disabled={!!error}>
           <Plus className="h-4 w-4 mr-2" />
           Create Workspace
         </Button>
       </div>
+
+      {error && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Unable to connect to database. Displaying sample data. Please configure your Supabase connection.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {isCreating && (
         <Card>
@@ -109,8 +139,6 @@ const WorkspaceManager = () => {
                     <SelectItem value="developer">Developer</SelectItem>
                     <SelectItem value="sales">Sales</SelectItem>
                     <SelectItem value="hris">HRIS</SelectItem>
-                    <SelectItem value="marketing">Marketing</SelectItem>
-                    <SelectItem value="finance">Finance</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -124,7 +152,7 @@ const WorkspaceManager = () => {
                 />
               </div>
               <div className="flex gap-2">
-                <Button type="submit" disabled={createWorkspace.isPending}>
+                <Button type="submit" disabled={createWorkspace.isPending || !!error}>
                   {createWorkspace.isPending ? 'Creating...' : 'Create'}
                 </Button>
                 <Button type="button" variant="outline" onClick={() => setIsCreating(false)}>
@@ -153,7 +181,7 @@ const WorkspaceManager = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {workspaces?.map((workspace) => (
+              {displayWorkspaces.map((workspace) => (
                 <TableRow key={workspace.id}>
                   <TableCell className="font-medium">{workspace.name}</TableCell>
                   <TableCell>
@@ -165,10 +193,10 @@ const WorkspaceManager = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" disabled={!!error}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" disabled={!!error}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

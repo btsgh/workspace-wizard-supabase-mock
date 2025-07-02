@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import StatsCards from '@/components/dashboard/StatsCards';
 import DashboardTabs from '@/components/dashboard/DashboardTabs';
@@ -11,7 +12,7 @@ import { useDashboardData } from '@/hooks/useDashboardData';
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedWorkspace, setSelectedWorkspace] = useState<any>(null);
-  const { workspaces, users, applications, isLoading } = useDashboardData();
+  const { workspaces, users, applications, isLoading, hasErrors } = useDashboardData();
 
   if (isLoading) {
     return (
@@ -46,6 +47,15 @@ const Dashboard = () => {
         title="Appsmith Workspace Manager"
         description="Manage workspaces, users, and applications for your Appsmith instance"
       />
+
+      {hasErrors && (
+        <Alert className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Unable to connect to database. Displaying sample data. Please check your Supabase configuration.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <StatsCards
         workspacesCount={workspaces?.length || 0}
