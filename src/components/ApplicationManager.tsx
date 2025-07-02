@@ -6,10 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit, Trash2, ExternalLink } from 'lucide-react';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
@@ -17,10 +16,9 @@ const ApplicationManager = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
     workspace_id: '',
-    status: 'development',
-    url: ''
+    status: 'active',
+    description: ''
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -42,8 +40,7 @@ const ApplicationManager = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('workspaces')
-        .select('*')
-        .order('name');
+        .select('*');
       if (error) throw error;
       return data;
     }
@@ -54,7 +51,7 @@ const ApplicationManager = () => {
       const { data, error } = await supabase
         .from('applications')
         .insert([app])
-        .select('*, workspaces(name)')
+        .select()
         .single();
       if (error) throw error;
       return data;
@@ -62,7 +59,7 @@ const ApplicationManager = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['applications'] });
       setIsCreating(false);
-      setFormData({ name: '', description: '', workspace_id: '', status: 'development', url: '' });
+      setFormData({ name: '', workspace_id: '', status: 'active', description: '' });
       toast({
         title: "Success",
         description: "Application created successfully",
@@ -70,7 +67,7 @@ const ApplicationManager = () => {
     },
     onError: (error) => {
       toast({
-        title: "Error",
+        title: "Error", 
         description: "Failed to create application",
         variant: "destructive",
       });
@@ -122,7 +119,7 @@ const ApplicationManager = () => {
                   <SelectContent>
                     {workspaces?.map((workspace) => (
                       <SelectItem key={workspace.id} value={workspace.id}>
-                        {workspace.name} ({workspace.type})
+                        {workspace.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -135,30 +132,19 @@ const ApplicationManager = () => {
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
                     <SelectItem value="development">Development</SelectItem>
-                    <SelectItem value="testing">Testing</SelectItem>
-                    <SelectItem value="production">Production</SelectItem>
-                    <SelectItem value="archived">Archived</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label htmlFor="url">Application URL</Label>
-                <Input
-                  id="url"
-                  type="url"
-                  value={formData.url}
-                  onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                  placeholder="https://your-app.appsmith.com"
-                />
-              </div>
-              <div>
                 <Label htmlFor="description">Description</Label>
-                <Textarea
+                <Input
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Enter application description"
+                  placeholder="Enter description"
                 />
               </div>
               <div className="flex gap-2">
@@ -177,7 +163,7 @@ const ApplicationManager = () => {
       <Card>
         <CardHeader>
           <CardTitle>Applications</CardTitle>
-          <CardDescription>Manage your Appsmith applications</CardDescription>
+          <CardDescription>Manage applications across workspaces</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -186,7 +172,7 @@ const ApplicationManager = () => {
                 <TableHead>Name</TableHead>
                 <TableHead>Workspace</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>URL</TableHead>
+                <TableHead>Description</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -197,28 +183,11 @@ const ApplicationManager = () => {
                   <TableCell className="font-medium">{app.name}</TableCell>
                   <TableCell>{app.workspaces?.name}</TableCell>
                   <TableCell>
-                    <Badge 
-                      variant={
-                        app.status === 'production' ? 'default' :
-                        app.status === 'testing' ? 'secondary' :
-                        app.status === 'development' ? 'outline' : 'destructive'
-                      }
-                    >
+                    <Badge variant={app.status === 'active' ? 'default' : 'secondary'}>
                       {app.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    {app.url && (
-                      <a 
-                        href={app.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
-                      >
-                        View <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
-                  </TableCell>
+                  <TableCell>{app.description}</TableCell>
                   <TableCell>
                     {new Date(app.created_at).toLocaleDateString()}
                   </TableCell>
