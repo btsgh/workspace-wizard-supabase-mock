@@ -90,12 +90,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Create user profile
       const { error: profileError } = await supabase
         .from('user_profiles')
-        .insert({
+        .insert([{
           id: data.user.id,
           email,
           full_name: fullName,
-          role: role as "admin" | "developer" | "sales" | "hr"
-        });
+          role
+        }]);
       
       if (profileError) {
         console.error('Error creating profile:', profileError);
