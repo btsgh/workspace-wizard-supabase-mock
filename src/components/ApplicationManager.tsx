@@ -17,7 +17,6 @@ const ApplicationManager = () => {
   const [formData, setFormData] = useState({
     name: '',
     workspace_id: '',
-    status: 'active',
     description: ''
   });
   const { toast } = useToast();
@@ -59,7 +58,7 @@ const ApplicationManager = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['applications'] });
       setIsCreating(false);
-      setFormData({ name: '', workspace_id: '', status: 'active', description: '' });
+      setFormData({ name: '', workspace_id: '', description: '' });
       toast({
         title: "Success",
         description: "Application created successfully",
@@ -126,19 +125,6 @@ const ApplicationManager = () => {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="status">Status</Label>
-                <Select onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="development">Development</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
                 <Label htmlFor="description">Description</Label>
                 <Input
                   id="description"
@@ -171,7 +157,6 @@ const ApplicationManager = () => {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Workspace</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead>Actions</TableHead>
@@ -182,11 +167,6 @@ const ApplicationManager = () => {
                 <TableRow key={app.id}>
                   <TableCell className="font-medium">{app.name}</TableCell>
                   <TableCell>{app.workspaces?.name}</TableCell>
-                  <TableCell>
-                    <Badge variant={app.status === 'active' ? 'default' : 'secondary'}>
-                      {app.status}
-                    </Badge>
-                  </TableCell>
                   <TableCell>{app.description}</TableCell>
                   <TableCell>
                     {new Date(app.created_at).toLocaleDateString()}

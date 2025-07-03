@@ -18,7 +18,7 @@ const UserManager = () => {
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
-    role: ''
+    role: '' as 'admin' | 'developer' | 'sales' | 'hr' | ''
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -39,10 +39,15 @@ const UserManager = () => {
   });
 
   const createUser = useMutation({
-    mutationFn: async (user: typeof formData) => {
+    mutationFn: async (user: { full_name: string; email: string; role: 'admin' | 'developer' | 'sales' | 'hr' }) => {
       const { data, error } = await supabase
         .from('user_profiles')
-        .insert([user])
+        .insert({
+          id: crypto.randomUUID(),
+          full_name: user.full_name,
+          email: user.email,
+          role: user.role
+        })
         .select()
         .single();
       if (error) throw error;
@@ -77,15 +82,21 @@ const UserManager = () => {
       });
       return;
     }
-    createUser.mutate(formData);
+    if (formData.role) {
+      createUser.mutate({
+        full_name: formData.full_name,
+        email: formData.email,
+        role: formData.role as 'admin' | 'developer' | 'sales' | 'hr'
+      });
+    }
   };
 
   // Mock data fallback
   const mockUsers = [
-    { id: '1', full_name: 'John Doe', email: 'john@company.com', role: 'admin', created_at: new Date().toISOString() },
-    { id: '2', full_name: 'Jane Smith', email: 'jane@company.com', role: 'developer', created_at: new Date().toISOString() },
-    { id: '3', full_name: 'Mike Johnson', email: 'mike@company.com', role: 'sales', created_at: new Date().toISOString() },
-    { id: '4', full_name: 'Sarah Wilson', email: 'sarah@company.com', role: 'hr', created_at: new Date().toISOString() }
+    { id: '1', full_name: 'John Doe', email: 'john@company.com', role: 'admin' as const, created_at: new Date().toISOString() },
+    { id: '2', full_name: 'Jane Smith', email: 'jane@company.com', role: 'developer' as const, created_at: new Date().toISOString() },
+    { id: '3', full_name: 'Mike Johnson', email: 'mike@company.com', role: 'sales' as const, created_at: new Date().toISOString() },
+    { id: '4', full_name: 'Sarah Wilson', email: 'sarah@company.com', role: 'hr' as const, created_at: new Date().toISOString() }
   ];
 
   const displayUsers = error ? mockUsers : (users || []);
@@ -142,7 +153,7 @@ const UserManager = () => {
               </div>
               <div>
                 <Label htmlFor="role">Role</Label>
-                <Select onValueChange={(value) => setFormData({ ...formData, role: value })}>
+                <Select onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'developer' | 'sales' | 'hr' })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>

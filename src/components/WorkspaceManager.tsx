@@ -18,7 +18,7 @@ const WorkspaceManager = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    type: '',
+    type: '' as 'developer' | 'sales' | 'hris' | '',
     description: ''
   });
   const { toast } = useToast();
@@ -40,10 +40,14 @@ const WorkspaceManager = () => {
   });
 
   const createWorkspace = useMutation({
-    mutationFn: async (workspace: typeof formData) => {
+    mutationFn: async (workspace: { name: string; type: 'developer' | 'sales' | 'hris'; description: string }) => {
       const { data, error } = await supabase
         .from('workspaces')
-        .insert([workspace])
+        .insert({
+          name: workspace.name,
+          type: workspace.type,
+          description: workspace.description
+        })
         .select()
         .single();
       if (error) throw error;
@@ -78,14 +82,20 @@ const WorkspaceManager = () => {
       });
       return;
     }
-    createWorkspace.mutate(formData);
+    if (formData.type) {
+      createWorkspace.mutate({
+        name: formData.name,
+        type: formData.type as 'developer' | 'sales' | 'hris',
+        description: formData.description
+      });
+    }
   };
 
   // Mock data fallback
   const mockWorkspaces = [
-    { id: '1', name: 'Developer Workspace', type: 'developer', description: 'Main development workspace', created_at: new Date().toISOString() },
-    { id: '2', name: 'Sales Team', type: 'sales', description: 'Sales and customer management', created_at: new Date().toISOString() },
-    { id: '3', name: 'HR Department', type: 'hris', description: 'Human resources management', created_at: new Date().toISOString() }
+    { id: '1', name: 'Developer Workspace', type: 'developer' as const, description: 'Main development workspace', created_at: new Date().toISOString() },
+    { id: '2', name: 'Sales Team', type: 'sales' as const, description: 'Sales and customer management', created_at: new Date().toISOString() },
+    { id: '3', name: 'HR Department', type: 'hris' as const, description: 'Human resources management', created_at: new Date().toISOString() }
   ];
 
   const displayWorkspaces = error ? mockWorkspaces : (workspaces || []);
@@ -131,7 +141,7 @@ const WorkspaceManager = () => {
               </div>
               <div>
                 <Label htmlFor="type">Workspace Type</Label>
-                <Select onValueChange={(value) => setFormData({ ...formData, type: value })}>
+                <Select onValueChange={(value) => setFormData({ ...formData, type: value as 'developer' | 'sales' | 'hris' })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select workspace type" />
                   </SelectTrigger>
