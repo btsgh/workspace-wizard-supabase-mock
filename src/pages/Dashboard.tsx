@@ -7,6 +7,7 @@ import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import StatsCards from '@/components/dashboard/StatsCards';
 import DashboardTabs from '@/components/dashboard/DashboardTabs';
 import WorkspaceDetail from '@/components/WorkspaceDetail';
+import UserProfile from '@/components/dashboard/UserProfile';
 import { useDashboardData } from '@/hooks/useDashboardData';
 
 const Dashboard = () => {
@@ -43,6 +44,8 @@ const Dashboard = () => {
 
   return (
     <div className="container mx-auto p-6">
+      <UserProfile />
+      
       <DashboardHeader 
         title="Appsmith Workspace Manager"
         description="Manage workspaces, users, and applications for your Appsmith instance"
