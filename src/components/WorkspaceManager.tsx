@@ -27,10 +27,14 @@ const WorkspaceManager = () => {
   const { data: workspaces, isLoading, error } = useQuery({
     queryKey: ['workspaces'],
     queryFn: async () => {
+      console.log('Fetching workspaces...');
       const { data, error } = await supabase
         .from('workspaces')
         .select('*')
         .order('created_at', { ascending: false });
+      
+      console.log('Workspaces query result:', { data, error });
+      
       if (error) {
         console.error('Error fetching workspaces:', error);
         throw error;
@@ -98,7 +102,9 @@ const WorkspaceManager = () => {
     { id: '3', name: 'HR Department', type: 'hris' as const, description: 'Human resources management', created_at: new Date().toISOString() }
   ];
 
+  console.log('Current state:', { workspaces, error, isLoading });
   const displayWorkspaces = error ? mockWorkspaces : (workspaces || []);
+  console.log('Display workspaces:', displayWorkspaces);
 
   if (isLoading) return <div className="text-center">Loading workspaces...</div>;
 
@@ -117,6 +123,8 @@ const WorkspaceManager = () => {
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             Unable to connect to database. Displaying sample data. Please configure your Supabase connection.
+            <br />
+            Error details: {error.message}
           </AlertDescription>
         </Alert>
       )}
