@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +12,7 @@ import { Plus, Edit, Trash2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 const WorkspaceManager = () => {
   const [isCreating, setIsCreating] = useState(false);
@@ -23,28 +23,40 @@ const WorkspaceManager = () => {
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user, session } = useAuth();
 
   const { data: workspaces, isLoading, error } = useQuery({
-    queryKey: ['workspaces'],
+    queryKey: ['workspaces', user?.id],
     queryFn: async () => {
-      console.log('Fetching workspaces...');
+      console.log('WorkspaceManager: Fetching workspaces for user:', user?.id);
+      
+      if (!user || !session) {
+        console.log('WorkspaceManager: No user or session');
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('workspaces')
         .select('*')
         .order('created_at', { ascending: false });
       
-      console.log('Workspaces query result:', { data, error });
+      console.log('WorkspaceManager: Workspaces query result:', { data, error });
       
       if (error) {
-        console.error('Error fetching workspaces:', error);
+        console.error('WorkspaceManager: Error fetching workspaces:', error);
         throw error;
       }
       return data || [];
-    }
+    },
+    enabled: !!user && !!session
   });
 
   const createWorkspace = useMutation({
     mutationFn: async (workspace: { name: string; type: 'developer' | 'sales' | 'hris'; description: string }) => {
+      if (!user || !session) {
+        throw new Error('User not authenticated');
+      }
+
       const { data, error } = await supabase
         .from('workspaces')
         .insert({
@@ -78,6 +90,14 @@ const WorkspaceManager = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user || !session) {
+      toast({
+        title: "Authentication Error",
+        description: "Please sign in to create workspaces.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (error) {
       toast({
         title: "Database Error",
@@ -95,16 +115,20 @@ const WorkspaceManager = () => {
     }
   };
 
-  // Mock data fallback
-  const mockWorkspaces = [
-    { id: '1', name: 'Developer Workspace', type: 'developer' as const, description: 'Main development workspace', created_at: new Date().toISOString() },
-    { id: '2', name: 'Sales Team', type: 'sales' as const, description: 'Sales and customer management', created_at: new Date().toISOString() },
-    { id: '3', name: 'HR Department', type: 'hris' as const, description: 'Human resources management', created_at: new Date().toISOString() }
-  ];
+  console.log('WorkspaceManager: Current state:', { workspaces, error, isLoading, user: !!user, session: !!session });
 
-  console.log('Current state:', { workspaces, error, isLoading });
-  const displayWorkspaces = error ? mockWorkspaces : (workspaces || []);
-  console.log('Display workspaces:', displayWorkspaces);
+  if (!user || !session) {
+    return (
+      <div className="space-y-6">
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Please sign in to view and manage workspaces.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   if (isLoading) return <div className="text-center">Loading workspaces...</div>;
 
@@ -122,7 +146,7 @@ const WorkspaceManager = () => {
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Unable to connect to database. Displaying sample data. Please configure your Supabase connection.
+            Unable to connect to database or insufficient permissions.
             <br />
             Error details: {error.message}
           </AlertDescription>
@@ -184,45 +208,51 @@ const WorkspaceManager = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Existing Workspaces</CardTitle>
-          <CardDescription>Manage your organization's workspaces</CardDescription>
+          <CardTitle>Your Workspaces</CardTitle>
+          <CardDescription>Workspaces you have access to</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {displayWorkspaces.map((workspace) => (
-                <TableRow key={workspace.id}>
-                  <TableCell className="font-medium">{workspace.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{workspace.type}</Badge>
-                  </TableCell>
-                  <TableCell>{workspace.description}</TableCell>
-                  <TableCell>
-                    {new Date(workspace.created_at).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" disabled={!!error}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" disabled={!!error}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+          {workspaces && workspaces.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {workspaces.map((workspace) => (
+                  <TableRow key={workspace.id}>
+                    <TableCell className="font-medium">{workspace.name}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{workspace.type}</Badge>
+                    </TableCell>
+                    <TableCell>{workspace.description}</TableCell>
+                    <TableCell>
+                      {new Date(workspace.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" disabled={!!error}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" disabled={!!error}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              No workspaces available. You may not have access to any workspaces yet.
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
