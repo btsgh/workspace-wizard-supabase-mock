@@ -1,4 +1,3 @@
-
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,30 +16,62 @@ export const useDashboardData = () => {
         return [];
       }
 
-      // First check if user has workspace access records
+      // Check user profile and role first
+      const { data: profileData, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      console.log('useDashboardData: User profile result:', { profileData, profileError });
+
+      // If user is admin, return all workspaces
+      if (profileData?.role === 'admin') {
+        console.log('useDashboardData: User is admin, fetching all workspaces');
+        const { data, error } = await supabase
+          .from('workspaces')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        console.log('useDashboardData: Admin workspaces query result:', { data, error });
+        
+        if (error) {
+          console.error('useDashboardData: Error fetching workspaces:', error);
+          throw error;
+        }
+        return data || [];
+      }
+
+      // For non-admin users, check workspace access
       console.log('useDashboardData: Checking user workspace access...');
       const { data: accessData, error: accessError } = await supabase
         .from('user_workspace_access')
-        .select('*')
+        .select('workspace_id')
         .eq('user_id', user.id);
       
       console.log('useDashboardData: User workspace access result:', { accessData, accessError });
 
-      // Check user profile and role
-      const { data: profileData, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', user.id);
-      
-      console.log('useDashboardData: User profile result:', { profileData, profileError });
+      if (accessError) {
+        console.error('useDashboardData: Error fetching workspace access:', accessError);
+        throw accessError;
+      }
 
-      // Now fetch workspaces
+      if (!accessData || accessData.length === 0) {
+        console.log('useDashboardData: No workspace access found for user');
+        return [];
+      }
+
+      const workspaceIds = accessData.map(access => access.workspace_id);
+      console.log('useDashboardData: User has access to workspace IDs:', workspaceIds);
+
+      // Fetch workspaces user has access to
       const { data, error } = await supabase
         .from('workspaces')
         .select('*')
+        .in('id', workspaceIds)
         .order('created_at', { ascending: false });
       
-      console.log('useDashboardData: Workspaces query result:', { data, error });
+      console.log('useDashboardData: User workspaces query result:', { data, error });
       
       if (error) {
         console.error('useDashboardData: Error fetching workspaces:', error);

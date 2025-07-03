@@ -32,6 +32,25 @@ const WorkspaceManager = () => {
         return [];
       }
 
+      // Check if user is admin
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (profileData?.role === 'admin') {
+        console.log('WorkspaceManager: Admin user, fetching all workspaces');
+        const { data, error } = await supabase
+          .from('workspaces')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        return data || [];
+      }
+
+      // For non-admin users, get workspaces they have access to
       const { data, error } = await supabase
         .from('workspaces')
         .select('*')
