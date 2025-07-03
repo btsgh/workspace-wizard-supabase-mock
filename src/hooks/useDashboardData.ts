@@ -9,23 +9,41 @@ export const useDashboardData = () => {
   const { data: workspaces, isLoading: workspacesLoading, error: workspacesError } = useQuery({
     queryKey: ['workspaces', user?.id],
     queryFn: async () => {
-      console.log('Fetching workspaces for user:', user?.id);
-      console.log('User session:', session);
+      console.log('useDashboardData: Fetching workspaces for user:', user?.id);
+      console.log('useDashboardData: User session:', session);
       
       if (!user || !session) {
-        console.log('No user or session, returning empty array');
+        console.log('useDashboardData: No user or session, returning empty array');
         return [];
       }
 
+      // First check if user has workspace access records
+      console.log('useDashboardData: Checking user workspace access...');
+      const { data: accessData, error: accessError } = await supabase
+        .from('user_workspace_access')
+        .select('*')
+        .eq('user_id', user.id);
+      
+      console.log('useDashboardData: User workspace access result:', { accessData, accessError });
+
+      // Check user profile and role
+      const { data: profileData, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', user.id);
+      
+      console.log('useDashboardData: User profile result:', { profileData, profileError });
+
+      // Now fetch workspaces
       const { data, error } = await supabase
         .from('workspaces')
         .select('*')
         .order('created_at', { ascending: false });
       
-      console.log('Workspaces query result:', { data, error });
+      console.log('useDashboardData: Workspaces query result:', { data, error });
       
       if (error) {
-        console.error('Error fetching workspaces:', error);
+        console.error('useDashboardData: Error fetching workspaces:', error);
         throw error;
       }
       return data || [];
@@ -36,10 +54,10 @@ export const useDashboardData = () => {
   const { data: users, isLoading: usersLoading, error: usersError } = useQuery({
     queryKey: ['user_profiles', user?.id],
     queryFn: async () => {
-      console.log('Fetching user profiles for user:', user?.id);
+      console.log('useDashboardData: Fetching user profiles for user:', user?.id);
       
       if (!user || !session) {
-        console.log('No user or session, returning empty array');
+        console.log('useDashboardData: No user or session, returning empty array');
         return [];
       }
 
@@ -48,10 +66,10 @@ export const useDashboardData = () => {
         .select('*')
         .order('created_at', { ascending: false });
       
-      console.log('User profiles query result:', { data, error });
+      console.log('useDashboardData: User profiles query result:', { data, error });
       
       if (error) {
-        console.error('Error fetching users:', error);
+        console.error('useDashboardData: Error fetching users:', error);
         throw error;
       }
       return data || [];
@@ -62,10 +80,10 @@ export const useDashboardData = () => {
   const { data: applications, isLoading: appsLoading, error: appsError } = useQuery({
     queryKey: ['applications', user?.id],
     queryFn: async () => {
-      console.log('Fetching applications for user:', user?.id);
+      console.log('useDashboardData: Fetching applications for user:', user?.id);
       
       if (!user || !session) {
-        console.log('No user or session, returning empty array');
+        console.log('useDashboardData: No user or session, returning empty array');
         return [];
       }
 
@@ -74,10 +92,10 @@ export const useDashboardData = () => {
         .select('*, workspaces(name)')
         .order('created_at', { ascending: false });
       
-      console.log('Applications query result:', { data, error });
+      console.log('useDashboardData: Applications query result:', { data, error });
       
       if (error) {
-        console.error('Error fetching applications:', error);
+        console.error('useDashboardData: Error fetching applications:', error);
         throw error;
       }
       return data || [];
@@ -85,32 +103,11 @@ export const useDashboardData = () => {
     enabled: !!user && !!session
   });
 
-  // Mock data fallback when database is not available or user is not authenticated
-  const mockWorkspaces = [
-    { id: '1', name: 'Developer Workspace', type: 'developer', description: 'Main development workspace', created_at: new Date().toISOString() },
-    { id: '2', name: 'Sales Team', type: 'sales', description: 'Sales and customer management', created_at: new Date().toISOString() },
-    { id: '3', name: 'HR Department', type: 'hris', description: 'Human resources management', created_at: new Date().toISOString() }
-  ];
-
-  const mockUsers = [
-    { id: '1', full_name: 'John Doe', email: 'john@company.com', role: 'admin', created_at: new Date().toISOString() },
-    { id: '2', full_name: 'Jane Smith', email: 'jane@company.com', role: 'developer', created_at: new Date().toISOString() },
-    { id: '3', full_name: 'Mike Johnson', email: 'mike@company.com', role: 'sales', created_at: new Date().toISOString() },
-    { id: '4', full_name: 'Sarah Wilson', email: 'sarah@company.com', role: 'hr', created_at: new Date().toISOString() }
-  ];
-
-  const mockApplications = [
-    { id: '1', name: 'Bug Tracker', workspace_id: '1', description: 'Track and manage bugs', created_at: new Date().toISOString(), workspaces: { name: 'Developer Workspace' } },
-    { id: '2', name: 'CRM System', workspace_id: '2', description: 'Customer relationship management', created_at: new Date().toISOString(), workspaces: { name: 'Sales Team' } },
-    { id: '3', name: 'Employee Portal', workspace_id: '3', description: 'Employee self-service portal', created_at: new Date().toISOString(), workspaces: { name: 'HR Department' } }
-  ];
-
-  // Only use mock data if there's an authentication error or no user
   const shouldUseMockData = !user || !session || workspacesError || usersError || appsError;
   
-  console.log('Should use mock data:', shouldUseMockData);
-  console.log('Auth state:', { user: !!user, session: !!session });
-  console.log('Errors:', { workspacesError, usersError, appsError });
+  console.log('useDashboardData: Should use mock data:', shouldUseMockData);
+  console.log('useDashboardData: Auth state:', { user: !!user, session: !!session });
+  console.log('useDashboardData: Errors:', { workspacesError, usersError, appsError });
 
   const finalWorkspaces = shouldUseMockData ? [] : (workspaces || []);
   const finalUsers = shouldUseMockData ? [] : (users || []);
