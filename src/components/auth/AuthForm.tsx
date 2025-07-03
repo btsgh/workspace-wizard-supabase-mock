@@ -29,7 +29,11 @@ const AuthForm = () => {
         : await signUp(email, password);
 
       if (error) {
-        setError(error.message);
+        if (error.message === 'Email not confirmed') {
+          setError('Please check your email and click the confirmation link. If you\'re using a test email, try using the quick login buttons below instead.');
+        } else {
+          setError(error.message);
+        }
         toast({
           title: "Error",
           description: error.message,
@@ -38,7 +42,7 @@ const AuthForm = () => {
       } else if (!isLogin) {
         toast({
           title: "Success",
-          description: "Account created successfully! Please check your email to confirm your account.",
+          description: "Account created successfully! Please check your email to confirm your account, or use the quick login buttons below for testing.",
         });
       } else {
         toast({
@@ -60,12 +64,21 @@ const AuthForm = () => {
     
     const { error } = await signIn(userEmail, userPassword);
     if (error) {
-      setError(error.message);
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      if (error.message === 'Email not confirmed') {
+        setError('This email needs to be confirmed. Please use the Supabase dashboard to create confirmed users or disable email confirmation in Auth settings.');
+        toast({
+          title: "Email Not Confirmed",
+          description: "Please confirm your email first, or create confirmed users in Supabase dashboard.",
+          variant: "destructive",
+        });
+      } else {
+        setError(error.message);
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
     }
     setLoading(false);
   };
@@ -133,7 +146,7 @@ const AuthForm = () => {
           <CardHeader>
             <CardTitle className="text-sm">Quick Login (Testing)</CardTitle>
             <CardDescription className="text-xs">
-              Use these buttons to quickly test different user permissions
+              Note: These accounts need to be created first in Supabase. If you get "Email not confirmed" errors, either disable email confirmation in Supabase Auth settings or create confirmed users manually.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -173,6 +186,21 @@ const AuthForm = () => {
             >
               Login as HRRep1 (HR Workspace)
             </Button>
+          </CardContent>
+        </Card>
+
+        {/* Instructions for fixing email confirmation */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Having trouble with email confirmation?</CardTitle>
+          </CardHeader>
+          <CardContent className="text-xs space-y-2">
+            <p>To fix email confirmation issues for testing:</p>
+            <ol className="list-decimal list-inside space-y-1">
+              <li>Go to Supabase Dashboard → Authentication → Settings</li>
+              <li>Turn off "Enable email confirmations"</li>
+              <li>Or create users manually in the Users tab with confirmed status</li>
+            </ol>
           </CardContent>
         </Card>
       </div>
